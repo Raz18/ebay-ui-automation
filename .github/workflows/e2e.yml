@@ -109,10 +109,3 @@ jobs:
         with:
           name: allure-report
           path: reports/allure-report/
-
-      - name: Publish Allure report to GitHub Pages
-        if: github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: reports/allure-report
