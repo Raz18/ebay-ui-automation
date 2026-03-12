@@ -1,0 +1,23 @@
+[
+    {
+        "test_name": "shoes_under_500",
+        "keyword": "shoes",
+        "max_price": 500,
+        "limit": 2,
+        "description": "Search for shoes under ILS 500, add up to 2 to cart"
+    },
+    {
+        "test_name": "wireless_headphones_under_100",
+        "keyword": "wireless headphones",
+        "max_price": 100,
+        "limit": 5,
+        "description": "Search for wireless headphones under ILS 100, add up to 5 to cart"
+    },
+    {
+        "test_name": "usb_cable_under_30",
+        "keyword": "usb-c cable",
+        "max_price": 30,
+        "limit": 3,
+        "description": "Search for USB-C cables under ILS 30, add up to 3 to cart"
+    }
+]

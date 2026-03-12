@@ -1,0 +1,40 @@
+{
+    "add_to_cart": {
+        "valid_items": {
+            "keyword": "usb-c cable",
+            "max_price": 75,
+            "limit": 2
+        },
+        "bin_only_items": {
+            "keyword": "limited edition sneakers",
+            "max_price": 1800,
+            "limit": 1
+        }
+    },
+    "cart_assertion": {
+        "within_budget": {
+            "keyword": "usb-c cable",
+            "max_price": 5,
+            "limit": 4,
+            "budget_per_item": 5
+        },
+        "exceeds_budget": {
+            "keyword": "laptop",
+            "max_price": 1200,
+            "limit": 2,
+            "budget_per_item": 1
+        }
+    },
+    "search_edge_cases": {
+        "pagination": {
+            "keyword": "phone case",
+            "max_price": 60,
+            "limit": 2
+        },
+        "no_results": {
+            "keyword": "xyzzy_no_such_product_99999",
+            "max_price": 40,
+            "limit": 3
+        }
+    }
+}

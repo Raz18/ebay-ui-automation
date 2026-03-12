@@ -1,0 +1,21 @@
+# eBay E2E Playwright Automation Framework - Dependencies
+# Python 3.12+ required
+
+# Core testing
+playwright>=1.49.0
+pytest>=8.0.0
+
+# Parallel execution
+pytest-xdist>=3.5.0
+
+# Test retries on flaky tests
+pytest-rerunfailures>=14.0
+
+# Allure reporting
+allure-pytest>=2.13.0
+
+# Data loading
+pyyaml>=6.0.0
+
+# Environment variable management
+python-dotenv>=1.0.0
