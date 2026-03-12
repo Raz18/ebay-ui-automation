@@ -46,6 +46,7 @@ jobs:
         with:
           name: allure-results-unit
           path: reports/*/allure-results/
+          if-no-files-found: ignore
 
   e2e-tests:
     name: E2E — ${{ matrix.browser }}
@@ -67,7 +68,12 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Install Playwright browsers
-        run: python -m playwright install --with-deps ${{ matrix.browser == 'firefox' && 'firefox' || 'chromium' }}
+        run: |
+          if [ "${{ matrix.browser }}" = "firefox" ]; then
+            python -m playwright install --with-deps firefox
+          else
+            python -m playwright install --with-deps chromium
+          fi
 
       - name: Run E2E tests (${{ matrix.browser }})
         run: >-
@@ -82,6 +88,7 @@ jobs:
         with:
           name: allure-results-${{ matrix.browser }}
           path: reports/*/allure-results/
+          if-no-files-found: ignore
 
       - name: Upload failure screenshots
         if: failure()
@@ -89,6 +96,7 @@ jobs:
         with:
           name: screenshots-${{ matrix.browser }}
           path: reports/*/screenshots/
+          if-no-files-found: ignore
 
       - name: Upload traces
         if: always()
@@ -113,12 +121,25 @@ jobs:
           path: reports/merged-allure-results
           merge-multiple: true
 
-      - name: Generate Allure report
-        uses: simple-elf/allure-report-action@v1.9
+      - name: Setup Java for Allure
+        uses: actions/setup-java@v4
         with:
-          allure_results: reports/merged-allure-results
-          allure_report: reports/allure-report
-          allure_history: reports/allure-history
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Allure CLI
+        run: |
+          curl -sL https://github.com/allure-framework/allure2/releases/download/2.32.0/allure-2.32.0.tgz | tar -xz
+          echo "$PWD/allure-2.32.0/bin" >> $GITHUB_PATH
+
+      - name: Generate Allure report
+        run: allure generate reports/merged-allure-results -o reports/allure-report --clean
+
+      - name: Upload Allure report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: reports/allure-report/
 
       - name: Publish Allure report to GitHub Pages
         if: github.ref == 'refs/heads/main'
