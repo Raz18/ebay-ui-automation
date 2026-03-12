@@ -380,7 +380,7 @@ Additional unit-support and edge-case data lives in `data/test_data.json`.
 The repository is not limited to the single submission E2E scenario. It also includes focused tests that validate supporting framework functionality.
 
 Current focused coverage includes:
-- login workflow behavior and CAPTCHA interruption handling in `tests/test_login_unit.py`
+- login workflow behavior and CAPTCHA interruption handling in `tests/test_login_unit.py` — uses `unittest.mock.MagicMock` and `monkeypatch` to mock the Playwright page and `LoginPage`, so login tests run entirely in Python without launching a browser
 - product-page variant selection and add-to-cart modal logic in `tests/test_product_page.py`
 - search-related behavior and supporting assertions in `tests/test_search.py`
 
