@@ -43,6 +43,29 @@ tests/
            -> LocatorEngine + RetryHandler + ScreenshotHelper + PriceParser
 ```
 
+### Playwright Architecture
+
+The framework uses a layered Playwright lifecycle managed entirely through pytest fixtures:
+
+```text
+sync_playwright  (session)
+  -> Browser      (session, one launch per profile)
+     -> Context   (per-test, isolated cookies/storage/fingerprint)
+        -> Page   (per-test, main tab)
+           -> Product tab  (reused within add-to-cart loop)
+```
+
+Key design decisions:
+- **Session-scoped browser** — a single browser process is launched once and shared across all tests in a session, avoiding repeated startup cost
+- **Per-test context isolation** — each test gets a fresh `BrowserContext` with its own cookies, storage state, viewport, locale, timezone, and user agent, so tests cannot leak state to each other
+- **Anti-detection init scripts** — `navigator.webdriver` is patched via `context.add_init_script()` when `MASK_AUTOMATION` is enabled
+- **Custom `data-test-id` attribute** — `pw.selectors.set_test_id_attribute("data-test-id")` is set at session start so `get_by_test_id()` calls target eBay's actual attribute
+- **Tab reuse over tab churn** — the add-to-cart flow opens one product tab and navigates it for each item rather than creating/destroying tabs per URL
+- **Playwright-native waits** — `page.wait_for_timeout()` is used instead of `time.sleep()` so the browser event loop stays active during delays
+- **Opt-in tracing** — `context.tracing.start()` is activated only with `--pw-trace` to keep normal runs lightweight
+- **Storage state round-trip** — contexts can load a pre-authenticated state on creation and save the updated state at teardown
+- **Cross-browser matrix** — `pytest_generate_tests` dynamically parametrizes the `browser_profile` fixture across Chrome, Edge, and Firefox using `config/browser_profiles.py`
+
 ### Project Layout
 
 ```text
@@ -136,11 +159,13 @@ Important details:
 `functions/cart_actions.py` implements the item-add flow.
 
 Current behavior:
-- each product opens in a temporary tab created from the search tab context
-- after each item, the product tab is closed and focus is restored to the original search results tab
-- a randomized anti-bot pause is inserted between items using `ANTI_BOT_DELAY_MIN` and `ANTI_BOT_DELAY_MAX`
+- a single reusable product tab is opened once and shared across all items — avoids the overhead of creating and destroying a tab per URL
+- navigating to the next product URL implicitly dismisses any post-add-to-cart modal, eliminating explicit overlay wait/close cycles
+- inter-item anti-bot delay uses `page.wait_for_timeout()` instead of `time.sleep()`, keeping the browser event loop active
+- the search tab is never touched during the add-to-cart loop since all product work happens in the separate tab
 - per-item screenshots are captured after successful add-to-cart
 - failures capture dedicated evidence and continue to the next URL
+- for CI runs, set `ANTI_BOT_DELAY_MIN=0` and `ANTI_BOT_DELAY_MAX=0` to skip inter-item delays entirely
 
 ### 6. Product page variant handling
 
@@ -195,51 +220,14 @@ Behavior:
 - Allure failure hook attaches screenshot and current URL on test failure
 - additional flow screenshots are saved by utility/workflow code
 
-## CAPTCHA Mitigations Already Implemented
+## CAPTCHA Handling
 
-This project runs against a live public site, so CAPTCHA cannot be fully eliminated. The framework focuses on detection, graceful handling, and session stabilization.
+This project runs against a live public site, so CAPTCHA cannot be fully eliminated. The framework detects challenges at every critical step (product page load, add-to-cart click, cart page, login) and responds with `pytest.skip()` plus evidence capture instead of crashing the test run.
 
-### Product flow mitigations
-
-Implemented in `functions/cart_actions.py` and `pages/product_page.py`:
-- detect CAPTCHA on the product page before add-to-cart
-- detect CAPTCHA again immediately after clicking `Add to cart`
-- skip the specific item instead of crashing the full item loop
-- add randomized delay between items to reduce bursty behavior
-
-### Cart flow mitigations
-
-Implemented in `pages/cart_page.py` and `functions/cart_actions.py`:
-- detect cart blocks by URL/title patterns such as `captcha` and `splashui`
-- capture `cart_blocked` evidence before skipping
-- treat CAPTCHA during subtotal read as a skip with evidence instead of a misleading assertion failure
-
-### Login flow mitigations
-
-Implemented in `pages/login_page.py` and `functions/login.py`:
-- detect CAPTCHA iframe presence during sign-in
-- raise a dedicated `CaptchaBlockedError`
-- convert the error to `pytest.skip(...)` at the workflow level
-- capture a screenshot when CAPTCHA is detected
-
-### Session and browser-state mitigations
-
-Implemented in `conftest.py` and `config/settings.py`:
-- support loading a trusted Playwright storage state with `STORAGE_STATE_PATH` or `--storage-state`
-- support saving storage state at teardown with `SAVE_STORAGE_STATE_PATH` or `--save-storage-state`
-- support browser/session fingerprint controls through locale, timezone, Accept-Language, user agent, and `MASK_AUTOMATION`
-- keep trace capture opt-in so normal E2E runs stay lighter
-
-### Shipping / location stabilization
-
-Implemented in `pages/home_page.py`:
-- auto-dismiss cookie banner
-- detect the shipping preferences iframe
-- choose the configured shipping country
-- optionally fill zipcode
-- confirm and wait for the popup to close
-
-This reduces variation in result pricing and item availability across runs.
+Supporting mitigations:
+- randomized inter-item delays and browser fingerprint controls reduce trigger frequency
+- storage-state persistence (`--storage-state` / `--save-storage-state`) lets trusted sessions carry across runs
+- shipping/locale preferences are initialized once per page via `HomePage` to stabilize pricing and reduce challenge variance
 
 ## Configuration
 
